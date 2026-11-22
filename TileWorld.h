@@ -100,6 +100,14 @@ void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 		} \
 	} while(0)
 
+#define TW_FindQuadMaxHeight(height, vertices) \
+	do {\
+		height = vertices[0].pos[1]; \
+		for(int i = 1; i < 4; i++) { \
+			if(vertices[i].pos[1] > height) height = vertices[i].pos[1]; \
+		} \
+	} while(0)
+
 typedef enum WindowType {
 	WINDOW_LEFT = 0, // -x
 	WINDOW_RIGHT, // +x
@@ -238,17 +246,28 @@ static void TW_AddWallToVertices(TW_VertexContext *ctx,
 		};
 	}
 
-	if(vertices[0].pos[1] > vertices[2].pos[1]) {
-		TW_AddVertexToVertices(ctx, vertices[2]);
-		TW_AddVertexToVertices(ctx, vertices[1]);
-		TW_AddVertexToVertices(ctx, vertices[0]);
+	bool check0above2 = vertices[0].pos[1] > vertices[2].pos[1];
+	bool check1above3 = vertices[1].pos[1] > vertices[3].pos[1];
+
+	if(!check0above2 && !check1above3) return;
+
+	float max_height;
+	TW_FindQuadMaxHeight(max_height, vertices);
+
+	if(!check0above2) {
+		vertices[0].pos[1] = max_height;
+	}
+	if(!check1above3) {
+		vertices[1].pos[1] = max_height;
 	}
 
-	if(vertices[1].pos[1] > vertices[3].pos[1]) {
-		TW_AddVertexToVertices(ctx, vertices[2]);
-		TW_AddVertexToVertices(ctx, vertices[3]);
-		TW_AddVertexToVertices(ctx, vertices[1]);
-	}
+	TW_AddVertexToVertices(ctx, vertices[2]);
+	TW_AddVertexToVertices(ctx, vertices[1]);
+	TW_AddVertexToVertices(ctx, vertices[0]);
+
+	TW_AddVertexToVertices(ctx, vertices[2]);
+	TW_AddVertexToVertices(ctx, vertices[3]);
+	TW_AddVertexToVertices(ctx, vertices[1]);
 }
 
 static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowType type) {
