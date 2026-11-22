@@ -5,6 +5,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 enum TW_SurfaceType {
 	TW_SURFACE_NO_INC = 0,
@@ -115,12 +116,12 @@ static float TW_GetSurfaceHeight(const TW_SurfaceConfig *cfg, float x, float z);
 static void TW_AddSurfaceToVertices(TW_VertexContext *ctx,
                                     const TW_SurfaceConfig *cfg,
                                     const TW_TextureConfig *tex, P2i point,
-                                    TW_Color color);
+                                    TW_Color color, bool rev_order);
 
 static void TW_AddWallToVertices(TW_VertexContext *ctx,
                                  const TW_SurfaceConfig *sur[2],
-                                 const TW_TextureConfig *tex, P2i line[2],
-                                 TW_Color color);
+                                 const TW_TextureConfig *tex, P2i origin[2],
+                                 P2i line[2], TW_Color color);
 
 static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowType type);
 static void TW_AddFloorCeilToVertices(TW_VertexContext *ctx, int x, int z);
@@ -158,7 +159,7 @@ static float TW_GetSurfaceHeight(const TW_SurfaceConfig *cfg, float x, float z) 
 static void TW_AddSurfaceToVertices(TW_VertexContext *ctx,
                                     const TW_SurfaceConfig *cfg,
                                     const TW_TextureConfig *tex, P2i point,
-                                    TW_Color color) {
+                                    TW_Color color, bool rev_order) {
 	if(tex->id == 0) return;
 
 	TW_Vertex vertices[4];
@@ -186,19 +187,27 @@ static void TW_AddSurfaceToVertices(TW_VertexContext *ctx,
 		};
 	}
 
-	TW_AddVertexToVertices(ctx, vertices[0]);
-	TW_AddVertexToVertices(ctx, vertices[1]);
-	TW_AddVertexToVertices(ctx, vertices[2]);
-
-	TW_AddVertexToVertices(ctx, vertices[1]);
-	TW_AddVertexToVertices(ctx, vertices[3]);
-	TW_AddVertexToVertices(ctx, vertices[2]);
+	if(rev_order) {
+		TW_AddVertexToVertices(ctx, vertices[0]);
+		TW_AddVertexToVertices(ctx, vertices[1]);
+		TW_AddVertexToVertices(ctx, vertices[2]);
+		TW_AddVertexToVertices(ctx, vertices[1]);
+		TW_AddVertexToVertices(ctx, vertices[3]);
+		TW_AddVertexToVertices(ctx, vertices[2]);
+	} else {
+		TW_AddVertexToVertices(ctx, vertices[2]);
+		TW_AddVertexToVertices(ctx, vertices[1]);
+		TW_AddVertexToVertices(ctx, vertices[0]);
+		TW_AddVertexToVertices(ctx, vertices[2]);
+		TW_AddVertexToVertices(ctx, vertices[3]);
+		TW_AddVertexToVertices(ctx, vertices[1]);
+	}
 }
 
 static void TW_AddWallToVertices(TW_VertexContext *ctx,
                                  const TW_SurfaceConfig *sur[2],
-                                 const TW_TextureConfig *tex, P2i line[2],
-                                 TW_Color color) {
+                                 const TW_TextureConfig *tex, P2i origin[2],
+                                 P2i line[2], TW_Color color) {
 	if(tex->id == 0) return;
 
 	TW_Vertex vertices[4];
@@ -208,7 +217,7 @@ static void TW_AddWallToVertices(TW_VertexContext *ctx,
 		int dz = i / 2;
 		int x = line[dx].x;
 		int z = line[dx].y;
-		float y = TW_GetSurfaceHeight(sur[dz], x, z);
+		float y = TW_GetSurfaceHeight(sur[dz], x - origin[dz].x, z - origin[dz].y);
 
 		vertices[i] = (TW_Vertex) {
 			.pos = {
@@ -230,68 +239,57 @@ static void TW_AddWallToVertices(TW_VertexContext *ctx,
 	}
 
 	if(vertices[0].pos[1] > vertices[2].pos[1]) {
-		TW_AddVertexToVertices(ctx, vertices[0]);
-		TW_AddVertexToVertices(ctx, vertices[1]);
 		TW_AddVertexToVertices(ctx, vertices[2]);
+		TW_AddVertexToVertices(ctx, vertices[1]);
+		TW_AddVertexToVertices(ctx, vertices[0]);
 	}
 
 	if(vertices[1].pos[1] > vertices[3].pos[1]) {
-		TW_AddVertexToVertices(ctx, vertices[1]);
-		TW_AddVertexToVertices(ctx, vertices[3]);
 		TW_AddVertexToVertices(ctx, vertices[2]);
+		TW_AddVertexToVertices(ctx, vertices[3]);
+		TW_AddVertexToVertices(ctx, vertices[1]);
 	}
 }
 
 static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowType type) {
-	P2i line[2];
-	const TW_Tile *tile = TW_WorldGetTile(*ctx->world, x, z);
-	const TW_Tile *adj = NULL;
-	
-	switch(type) {
-		case WINDOW_LEFT:
-			if(x <= 0) break;
+	const P2i full_points_around_quad[4] = {
+		{x, z},
+		{x, z + 1},
+		{x + 1, z + 1},
+		{x + 1, z},
+	};
 
-			adj = TW_WorldGetTile(*ctx->world, x - 1, z);
-			line[0] = (P2i) {x, z};
-			line[1] = (P2i) {x, z + 1};
-			break;
+	const P2i full_adj_points[4] = {
+		{x - 1, z},
+		{x, z + 1},
+		{x + 1, z},
+		{x, z - 1},
+	};
 
-		case WINDOW_UP:
-			if(z + 1 >= (int) ctx->world->height) break;
+	const P2i adj_origin = full_adj_points[type];
 
-			adj = TW_WorldGetTile(*ctx->world, x, z + 1);
-			line[0] = (P2i) {x, z + 1};
-			line[1] = (P2i) {x + 1, z + 1};
-			break;
-
-		case WINDOW_RIGHT:
-			if(x + 1 >= (int) ctx->world->width) break;
-
-			adj = TW_WorldGetTile(*ctx->world, x + 1, z);
-			line[0] = (P2i) {x + 1, z + 1};
-			line[1] = (P2i) {x + 1, z};
-			break;
-
-		case WINDOW_DOWN:
-			if(z <= 0) break;
-
-			adj = TW_WorldGetTile(*ctx->world, x, z - 1);
-			line[0] = (P2i) {x + 1, z};
-			line[1] = (P2i) {x, z};
-			break;
+	if(!TW_WorldInBounds(*ctx->world, adj_origin.x, adj_origin.y)) {
+		return;
 	}
 
-	if(adj == NULL) return;
+	const TW_Tile *tile = TW_WorldGetTile(*ctx->world, x, z);
+	const TW_Tile *adj = TW_WorldGetTile(*ctx->world, adj_origin.x, adj_origin.y);
+
+	P2i line[2] = {
+		full_points_around_quad[type],
+		full_points_around_quad[(type + 1) % 4],
+	};
 
 	const TW_SurfaceConfig *sur1[] = {
 		&tile->surfaces.floor,
-		&adj->surfaces.floor
+		&adj->surfaces.floor,
 	};
 
 	TW_AddWallToVertices(
 			ctx,
 			sur1,
 			&tile->textures.window_floor,
+			(P2i[2]){{x, z}, adj_origin},
 			line,
 			adj->color
 			);
@@ -305,6 +303,7 @@ static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowTy
 			ctx,
 			sur2,
 			&tile->textures.window_ceil,
+			(P2i[2]){adj_origin, {x, z}},
 			line,
 			adj->color
 			);
@@ -313,12 +312,15 @@ static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowTy
 static void TW_AddFloorCeilToVertices(TW_VertexContext *ctx, int x, int z) {
 	const TW_Tile *tile = TW_WorldGetTile(*ctx->world, x, z);
 
+	if(tile->textures.wall.id != 0) return;
+
 	TW_AddSurfaceToVertices(
 			ctx,
 			&tile->surfaces.floor,
 			&tile->textures.floor,
 			(P2i) {x, z},
-			tile->color
+			tile->color,
+			false
 			);
 
 	TW_AddSurfaceToVertices(
@@ -326,12 +328,14 @@ static void TW_AddFloorCeilToVertices(TW_VertexContext *ctx, int x, int z) {
 			&tile->surfaces.ceil,
 			&tile->textures.ceil,
 			(P2i) {x, z},
-			tile->color
+			tile->color,
+			true
 			);
 }
 
 static void TW_AddFullWallToVertices(TW_VertexContext *ctx, int x, int z) {
 	const TW_Tile *tile = TW_WorldGetTile(*ctx->world, x, z);
+
 	const TW_SurfaceConfig *sur[2] = {
 		&tile->surfaces.ceil,
 		&tile->surfaces.floor,
@@ -356,6 +360,7 @@ static void TW_AddFullWallToVertices(TW_VertexContext *ctx, int x, int z) {
 				ctx,
 				sur,
 				&tile->textures.wall,
+				(P2i[2]) {{x, z}, {x, z}},
 				(P2i[2]) {
 					points[i],
 					points[(i + 1) % 4]
