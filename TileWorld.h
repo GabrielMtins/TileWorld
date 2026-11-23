@@ -1,6 +1,10 @@
 #ifndef TILEWORLD_H
 #define TILEWORLD_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -73,6 +77,10 @@ typedef struct TW_VertexContext {
 
 void TW_ComputeTileVertices(TW_VertexContext *ctx, uint32_t x, uint32_t z);
 void TW_ComputeStaticVertices(TW_VertexContext *ctx);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* TILEWORLD_H */
 
