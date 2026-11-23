@@ -1,8 +1,6 @@
 #ifndef TILEWORLD_H
 #define TILEWORLD_H
 
-#define TILEWORLD_IMPLEMENTATION
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
