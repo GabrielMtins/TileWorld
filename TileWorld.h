@@ -114,7 +114,7 @@ void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 	do {\
 		TW_Vec3 ab, ac; \
 		TW_Vec3_Sub(ab, b, a); \
-		TW_Vec3_Sub(ab, c, a); \
+		TW_Vec3_Sub(ac, c, a); \
 		TW_Vec3_Cross(res, ab, ac); \
 	} while(0);
 
