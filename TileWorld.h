@@ -5,8 +5,6 @@
 extern "C" {
 #endif
 
-#define TILEWORLD_IMPLEMENTATION
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
