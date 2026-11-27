@@ -76,6 +76,9 @@ typedef struct TW_VertexContext {
 } TW_VertexContext;
 
 void TW_ComputeTileVertices(TW_VertexContext *ctx, uint32_t x, uint32_t z);
+
+void TW_ComputeChunkVertices(TW_VertexContext *ctx, int min[2], int max[2]);
+
 void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 
 #ifdef __cplusplus
@@ -471,6 +474,18 @@ void TW_ComputeTileVertices(TW_VertexContext *ctx, uint32_t x, uint32_t z) {
 	TW_AddFloorCeilToVertices(ctx, x, z);
 	TW_AddFullWallToVertices(ctx, x, z);
 	TW_AddFullWindowsToVertices(ctx, x, z);
+}
+
+void TW_ComputeChunkVertices(TW_VertexContext *ctx, int min[2], int max[2]) {
+	for(int j = min[1]; j < max[1]; j++) {
+		for(int i = min[0]; i < max[0]; i++) {
+			if(i < 0 || j < 0 || i >= (int) ctx->world->width || j >= (int) ctx->world->height) {
+				continue;
+			}
+
+			TW_ComputeTileVertices(ctx, i, j);
+		}
+	}
 }
 
 void TW_ComputeStaticVertices(TW_VertexContext *ctx) {
