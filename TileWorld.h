@@ -86,33 +86,33 @@ void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 
 #ifdef TILEWORLD_IMPLEMENTATION
 
-#define vec3_cross(res, a, b) \
+#define TW_Vec3_Cross(res, a, b) \
 	do {\
 		res[0] = a[1] * b[2] - a[2] * b[1]; \
 		res[1] = a[2] * b[0] - a[0] * b[2]; \
 		res[2] = a[0] * b[1] - a[1] * b[0]; \
 	} while(0)
 
-#define vec3_sub(res, a, b) \
+#define TW_Vec3_Sub(res, a, b) \
 	do {\
 		res[0] = a[0] - b[0]; \
 		res[1] = a[1] - b[1]; \
 		res[2] = a[2] - b[2]; \
 	} while(0)
 
-#define vec3_copy(res, a) \
+#define TW_Vec3_Copy(res, a) \
 	do {\
 		res[0] = a[0]; \
 		res[1] = a[1]; \
 		res[2] = a[2]; \
 	} while(0);
 
-#define get_triangle_normal(res, a, b, c) \
+#define TW_GetTriangleNormal(res, a, b, c) \
 	do {\
 		TW_Vec3 ab, ac; \
-		vec3_sub(ab, b, a); \
-		vec3_sub(ab, c, a); \
-		vec3_cross(res, ab, ac); \
+		TW_Vec3_Sub(ab, b, a); \
+		TW_Vec3_Sub(ab, c, a); \
+		TW_Vec3_Cross(res, ab, ac); \
 	} while(0);
 
 #define TW_WorldInBounds(world, x, z) \
@@ -136,10 +136,10 @@ void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 #define TW_ComputeTriangleNormal(vertices) \
 	do {\
 		TW_Vec3 normal; \
-		get_triangle_normal(normal, (vertices)[0].pos, (vertices)[1].pos, (vertices)[2].pos); \
-		vec3_copy((vertices)[0].normal, normal); \
-		vec3_copy((vertices)[1].normal, normal); \
-		vec3_copy((vertices)[2].normal, normal); \
+		TW_GetTriangleNormal(normal, (vertices)[0].pos, (vertices)[1].pos, (vertices)[2].pos); \
+		TW_Vec3_Copy((vertices)[0].normal, normal); \
+		TW_Vec3_Copy((vertices)[1].normal, normal); \
+		TW_Vec3_Copy((vertices)[2].normal, normal); \
 	} while(0)
 
 #define TW_TriangulateQuad(vertices, quad) \
