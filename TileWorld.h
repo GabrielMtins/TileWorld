@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define TILEWORLD_IMPLEMENTATION
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -86,6 +88,35 @@ void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 
 #ifdef TILEWORLD_IMPLEMENTATION
 
+#define vec3_cross(res, a, b) \
+	do {\
+		res[0] = a[1] * b[2] - a[2] * b[1]; \
+		res[1] = a[2] * b[0] - a[0] * b[2]; \
+		res[2] = a[0] * b[1] - a[1] * b[0]; \
+	} while(0)
+
+#define vec3_sub(res, a, b) \
+	do {\
+		res[0] = a[0] - b[0]; \
+		res[1] = a[1] - b[1]; \
+		res[2] = a[2] - b[2]; \
+	} while(0)
+
+#define vec3_copy(res, a) \
+	do {\
+		res[0] = a[0]; \
+		res[1] = a[1]; \
+		res[2] = a[2]; \
+	} while(0);
+
+#define get_triangle_normal(res, a, b, c) \
+	do {\
+		TW_Vec3 ab, ac; \
+		vec3_sub(ab, b, a); \
+		vec3_sub(ab, c, a); \
+		vec3_cross(res, ab, ac); \
+	} while(0);
+
 #define TW_WorldInBounds(world, x, z) \
 	((x) >= 0 && (z) >= 0 && (x) < (int) (world).width && (z) < (int) (world).height)
 
@@ -98,6 +129,25 @@ void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 
 #define TW_AddVertexToVertices(ctx, vertex) \
 	(ctx)->addVertexToUserdata((ctx)->userdata, &(vertex))
+
+#define TW_ComputeTriangleNormal(vertices) \
+	do {\
+		TW_Vec3 normal; \
+		get_triangle_normal(normal, (vertices)[0].pos, (vertices)[1].pos, (vertices)[2].pos); \
+		vec3_copy((vertices)[0].normal, normal); \
+		vec3_copy((vertices)[1].normal, normal); \
+		vec3_copy((vertices)[2].normal, normal); \
+	} while(0)
+
+#define TW_TriangulateQuad(vertices, quad) \
+	do {\
+		(vertices)[0] = (quad)[2]; \
+		(vertices)[1] = (quad)[1]; \
+		(vertices)[2] = (quad)[0]; \
+		(vertices)[3] = (quad)[2]; \
+		(vertices)[4] = (quad)[3]; \
+		(vertices)[5] = (quad)[1]; \
+	} while(0)
 
 #define TW_AddTriangleToVertices(ctx, vertices) \
 	do {\
@@ -177,6 +227,7 @@ static void TW_AddSurfaceToVertices(TW_VertexContext *ctx,
 	if(tex->id == 0) return;
 
 	TW_Vertex vertices[4];
+	TW_Vertex triangles[6];
 
 	for(int i = 0; i < 4; i++) {
 		int dx = i % 2;
@@ -202,20 +253,17 @@ static void TW_AddSurfaceToVertices(TW_VertexContext *ctx,
 	}
 
 	if(rev_order) {
-		TW_AddVertexToVertices(ctx, vertices[0]);
-		TW_AddVertexToVertices(ctx, vertices[1]);
-		TW_AddVertexToVertices(ctx, vertices[2]);
-		TW_AddVertexToVertices(ctx, vertices[1]);
-		TW_AddVertexToVertices(ctx, vertices[3]);
-		TW_AddVertexToVertices(ctx, vertices[2]);
-	} else {
-		TW_AddVertexToVertices(ctx, vertices[2]);
-		TW_AddVertexToVertices(ctx, vertices[1]);
-		TW_AddVertexToVertices(ctx, vertices[0]);
-		TW_AddVertexToVertices(ctx, vertices[2]);
-		TW_AddVertexToVertices(ctx, vertices[3]);
-		TW_AddVertexToVertices(ctx, vertices[1]);
+		TW_Vertex tmp = vertices[0];
+		vertices[0] = vertices[3];
+		vertices[3] = tmp;
 	}
+
+	TW_TriangulateQuad(triangles, vertices);
+	TW_ComputeTriangleNormal(triangles + 0);
+	TW_ComputeTriangleNormal(triangles + 3);
+
+	TW_AddTriangleToVertices(ctx, triangles + 0);
+	TW_AddTriangleToVertices(ctx, triangles + 3);
 }
 
 static void TW_AddWallToVertices(TW_VertexContext *ctx,
@@ -224,6 +272,7 @@ static void TW_AddWallToVertices(TW_VertexContext *ctx,
                                  P2i line[2], TW_Color color) {
 	if(tex->id == 0) return;
 
+	TW_Vertex triangles[6];
 	TW_Vertex vertices[4];
 
 	for(int i = 0; i < 4; i++) {
@@ -267,13 +316,12 @@ static void TW_AddWallToVertices(TW_VertexContext *ctx,
 		vertices[1].pos[1] = max_height;
 	}
 
-	TW_AddVertexToVertices(ctx, vertices[2]);
-	TW_AddVertexToVertices(ctx, vertices[1]);
-	TW_AddVertexToVertices(ctx, vertices[0]);
+	TW_TriangulateQuad(triangles, vertices);
+	TW_ComputeTriangleNormal(triangles + 0);
+	TW_ComputeTriangleNormal(triangles + 3);
 
-	TW_AddVertexToVertices(ctx, vertices[2]);
-	TW_AddVertexToVertices(ctx, vertices[3]);
-	TW_AddVertexToVertices(ctx, vertices[1]);
+	TW_AddTriangleToVertices(ctx, triangles + 0);
+	TW_AddTriangleToVertices(ctx, triangles + 3);
 }
 
 static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowType type) {
