@@ -122,6 +122,11 @@ void TW_ComputeStaticVertices(TW_VertexContext *ctx);
 
 #define TW_WorldGetTile(world, x, z) (&((world).tiles[(x) + (z) * (world).width]))
 
+#define TW_WorldTileHasWall(world, x, z) \
+	(TW_WorldInBounds(world, x, z) ? \
+	(TW_WorldGetTile(world, x, z)->textures.wall.id != 0) : \
+	1)
+
 #define TW_WorldGetTileColor(world, x, z) \
 	(TW_WorldInBounds(world, x, z) ? \
 	(TW_WorldGetTile(world, x, z))->color : \
@@ -345,6 +350,10 @@ static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowTy
 		return;
 	}
 
+	if(TW_WorldTileHasWall(*ctx->world, adj_origin.x, adj_origin.y)) {
+		return;
+	}
+
 	const TW_Tile *tile = TW_WorldGetTile(*ctx->world, x, z);
 	const TW_Tile *adj = TW_WorldGetTile(*ctx->world, adj_origin.x, adj_origin.y);
 
@@ -383,9 +392,11 @@ static void TW_AddWindowToVertices(TW_VertexContext *ctx, int x, int z, WindowTy
 }
 
 static void TW_AddFloorCeilToVertices(TW_VertexContext *ctx, int x, int z) {
-	const TW_Tile *tile = TW_WorldGetTile(*ctx->world, x, z);
+	if(TW_WorldTileHasWall(*ctx->world, x, z)) {
+		return;
+	}
 
-	if(tile->textures.wall.id != 0) return;
+	const TW_Tile *tile = TW_WorldGetTile(*ctx->world, x, z);
 
 	TW_AddSurfaceToVertices(
 			ctx,
@@ -421,14 +432,18 @@ static void TW_AddFullWallToVertices(TW_VertexContext *ctx, int x, int z) {
 		{x + 1, z + 0},
 	};
 
-	TW_Color colors[] = {
-		TW_WorldGetTileColor(*ctx->world, x - 1, z),
-		TW_WorldGetTileColor(*ctx->world, x, z + 1),
-		TW_WorldGetTileColor(*ctx->world, x + 1, z),
-		TW_WorldGetTileColor(*ctx->world, x, z - 1),
+	P2i adj_tiles[] = {
+		{x - 1, z},
+		{x, z + 1},
+		{x + 1, z},
+		{x, z - 1},
 	};
 
 	for(int i = 0; i < 4; i++) {
+		if(TW_WorldTileHasWall(*ctx->world, adj_tiles[i].x, adj_tiles[i].y)) {
+			continue;
+		}
+
 		TW_AddWallToVertices(
 				ctx,
 				sur,
@@ -438,7 +453,7 @@ static void TW_AddFullWallToVertices(TW_VertexContext *ctx, int x, int z) {
 					points[i],
 					points[(i + 1) % 4]
 				},
-				colors[i]
+				TW_WorldGetTileColor(*ctx->world, adj_tiles[i].x, adj_tiles[i].y)
 				);
 	}
 }
